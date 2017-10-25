@@ -2,11 +2,14 @@
 
 #include <steemit/app/application.hpp>
 
-#include <steemit/account_by_key/account_by_key_objects.hpp>
+#include <steemit/chain/account_by_key_objects.hpp>
 
 #include <fc/api.hpp>
 
 namespace steemit { namespace account_by_key {
+
+using steemit::protocol::account_name_type;
+using steemit::protocol::public_key_type;
 
 namespace detail
 {

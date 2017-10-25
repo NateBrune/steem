@@ -1,7 +1,10 @@
 #include <steemit/account_by_key/account_by_key_api.hpp>
-#include <steemit/account_by_key/account_by_key_objects.hpp>
+#include <steemit/chain/account_by_key_objects.hpp>
 
 namespace steemit { namespace account_by_key {
+
+using steemit::chain::key_lookup_index;
+using steemit::chain::by_key;
 
 namespace detail
 {

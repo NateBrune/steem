@@ -1,5 +1,5 @@
 #include <steemit/account_by_key/account_by_key_plugin.hpp>
-#include <steemit/account_by_key/account_by_key_objects.hpp>
+#include <steemit/chain/account_by_key_objects.hpp>
 
 #include <steemit/chain/account_object.hpp>
 #include <steemit/chain/database.hpp>
@@ -10,6 +10,8 @@
 #include <graphene/schema/schema_impl.hpp>
 
 namespace steemit { namespace account_by_key {
+
+using namespace steemit::chain;
 
 namespace detail
 {
@@ -153,7 +155,7 @@ struct post_operation_visitor
             if( account == nullptr )
                continue;
 
-            db.create< key_lookup_object >( [&]( key_lookup_object& o )
+            db.create< chain::key_lookup_object >( [&]( chain::key_lookup_object& o )
             {
                o.key = public_key_type( "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR" );
                o.account = account->name;
@@ -181,52 +183,7 @@ void account_by_key_plugin_impl::cache_auths( const account_authority_object& a 
 void account_by_key_plugin_impl::update_key_lookup( const account_authority_object& a )
 {
    auto& db = database();
-   flat_set< public_key_type > new_keys;
-
-   // Construct the set of keys in the account's authority
-   for( const auto& item : a.owner.key_auths )
-      new_keys.insert( item.first );
-   for( const auto& item : a.active.key_auths )
-      new_keys.insert( item.first );
-   for( const auto& item : a.posting.key_auths )
-      new_keys.insert( item.first );
-
-   // For each key that needs a lookup
-   for( const auto& key : new_keys )
-   {
-      // If the key was not in the authority, add it to the lookup
-      if( cached_keys.find( key ) == cached_keys.end() )
-      {
-         auto lookup_itr = db.find< key_lookup_object, by_key >( std::make_tuple( key, a.account ) );
-
-         if( lookup_itr == nullptr )
-         {
-            db.create< key_lookup_object >( [&]( key_lookup_object& o )
-            {
-               o.key = key;
-               o.account = a.account;
-            });
-         }
-      }
-      else
-      {
-         // If the key was already in the auths, remove it from the set so we don't delete it
-         cached_keys.erase( key );
-      }
-   }
-
-   // Loop over the keys that were in authority but are no longer and remove them from the lookup
-   for( const auto& key : cached_keys )
-   {
-      auto lookup_itr = db.find< key_lookup_object, by_key >( std::make_tuple( key, a.account ) );
-
-      if( lookup_itr != nullptr )
-      {
-         db.remove( *lookup_itr );
-      }
-   }
-
-   cached_keys.clear();
+   db.update_key_lookup( a, cached_keys );
 }
 
 void account_by_key_plugin_impl::pre_operation( const operation_notification& note )

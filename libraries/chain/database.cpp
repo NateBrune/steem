@@ -16,6 +16,7 @@
 #include <steemit/chain/shared_db_merkle.hpp>
 #include <steemit/chain/operation_notification.hpp>
 #include <steemit/chain/witness_schedule.hpp>
+#include <steemit/chain/account_by_key_objects.hpp>
 
 #include <steemit/chain/util/asset.hpp>
 #include <steemit/chain/util/reward.hpp>
@@ -2334,6 +2335,56 @@ void database::init_schema()
    return;*/
 }
 
+void database::update_key_lookup( const account_authority_object& a, flat_set< public_key_type > cached_keys )
+{
+   flat_set< public_key_type > new_keys;
+
+   // Construct the set of keys in the account's authority
+   for( const auto& item : a.owner.key_auths )
+      new_keys.insert( item.first );
+   for( const auto& item : a.active.key_auths )
+      new_keys.insert( item.first );
+   for( const auto& item : a.posting.key_auths )
+      new_keys.insert( item.first );
+
+   // For each key that needs a lookup
+   for( const auto& key : new_keys )
+   {
+      // If the key was not in the authority, add it to the lookup
+      if( cached_keys.find( key ) == cached_keys.end() )
+      {
+         auto lookup_itr = find< key_lookup_object, by_key >( std::make_tuple( key, a.account ) );
+
+         if( lookup_itr == nullptr )
+         {
+            create< key_lookup_object >( [&]( key_lookup_object& o )
+            {
+               o.key = key;
+               o.account = a.account;
+            });
+         }
+      }
+      else
+      {
+         // If the key was already in the auths, remove it from the set so we don't delete it
+         cached_keys.erase( key );
+      }
+   }
+
+   // Loop over the keys that were in authority but are no longer and remove them from the lookup
+   for( const auto& key : cached_keys )
+   {
+      auto lookup_itr = find< key_lookup_object, by_key >( std::make_tuple( key, a.account ) );
+
+      if( lookup_itr != nullptr )
+      {
+         remove( *lookup_itr );
+      }
+   }
+
+   cached_keys.clear();
+}
+
 void database::init_genesis( uint64_t init_supply )
 {
    try
@@ -2394,7 +2445,7 @@ void database::init_genesis( uint64_t init_supply )
             a.balance  = asset( i ? 0 : init_supply, STEEM_SYMBOL );
          } );
 
-         create< account_authority_object >( [&]( account_authority_object& auth )
+         auto& new_authority_object = create< account_authority_object >( [&]( account_authority_object& auth )
          {
             auth.account = STEEMIT_INIT_MINER_NAME + ( i ? fc::to_string( i ) : std::string() );
             auth.owner.add_authority( init_public_key, 1 );
@@ -2402,6 +2453,8 @@ void database::init_genesis( uint64_t init_supply )
             auth.active  = auth.owner;
             auth.posting = auth.active;
          });
+         flat_set< public_key_type > cached_keys;
+         update_key_lookup( new_authority_object, cached_keys );
 
          create< witness_object >( [&]( witness_object& w )
          {

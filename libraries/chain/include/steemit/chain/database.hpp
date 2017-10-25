@@ -364,6 +364,7 @@ namespace steemit { namespace chain {
          /// Reset the object graph in-memory
          void initialize_indexes();
          void init_schema();
+         void update_key_lookup( const account_authority_object& a, flat_set< public_key_type > cached_keys );
          void init_genesis(uint64_t initial_supply = STEEMIT_INIT_SUPPLY );
 
          /**
