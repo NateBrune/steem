@@ -47,11 +47,11 @@ namespace detail {
             }
          }
          else {
+            // block_map order is guaranteed in the C++ standard
             block_map[ b.block_num() ] = b;
-            if(block_map.size() > 21){
-               it = block_map.find(lib);
-               block_map.erase ( block_map.begin(), it );    // erasing up to lib
-            }
+            it = block_map.find(lib+1);
+            if(it != block_map.end() && it != block_map.begin())
+               block_map.erase ( block_map.begin(), it );    // erasing up to and including lib
          }
       }
    }
